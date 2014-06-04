@@ -28,6 +28,8 @@ gem 'bootstrap-sass'
 
 gem 'font-awesome-rails'
 
+gem 'unicorn'
+
 group :development, :test do
   gem 'rspec-rails'
   gem 'rspec-collection_matchers'
