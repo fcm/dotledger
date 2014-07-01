@@ -29,7 +29,39 @@ Capybara.javascript_driver = :poltergeist
 # If you are not using ActiveRecord, you can remove this line.
 ActiveRecord::Migration.maintain_test_schema!
 
+# Poltergeist restart code from https://gist.github.com/afn/c04ccfe71d648763b306
+
+CAPYBARA_TIMEOUT_RETRIES = 3
+
+def restart_phantomjs
+  puts "-> Restarting phantomjs: iterating through capybara sessions..."
+  session_pool = Capybara.send('session_pool')
+  session_pool.each do |mode,session|
+    msg = "  => #{mode} -- "
+    driver = session.driver
+    if driver.is_a?(Capybara::Poltergeist::Driver)
+      msg += "restarting"
+      driver.restart
+    else
+      msg += "not poltergeist: #{driver.class}"
+    end
+    puts msg
+  end
+end
+
 RSpec.configure do |config|
+  config.around(:each, type: :feature) do |ex|
+    example = RSpec.current_example
+    CAPYBARA_TIMEOUT_RETRIES.times do |i|
+      example.instance_variable_set('@exception', nil)
+      self.instance_variable_set('@__memoized', nil) # clear let variables
+      ex.run
+      break unless example.exception.is_a?(Capybara::Poltergeist::TimeoutError)
+      puts("\nCapybara::Poltergeist::TimeoutError at #{example.location}\n   Restarting phantomjs and retrying...")
+      restart_phantomjs
+    end
+  end
+
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_path = "#{::Rails.root}/spec/fixtures"
 
